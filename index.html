@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Learning Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Configure Tailwind CSS to use the 'class' strategy for dark mode
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .task-checkbox:checked + label, .dashboard-task-checkbox:checked + label {
+            color: #6b7280;
+        }
+        .dark .task-checkbox:checked + label, .dark .dashboard-task-checkbox:checked + label {
+            color: #94a3b8; /* slate-400 */
+        }
+        .task-checkbox:checked, .dashboard-task-checkbox:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        label, .task-checkbox, .dashboard-task-checkbox, button {
+            transition: all 0.2s ease-in-out;
+        }
+        #tracker-view, #category-modal, #edit-category-modal {
+            display: none;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s, stroke 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .plan-details-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .day-plan-summary.expanded .plan-details-content {
+            max-height: 1000px;
+        }
+        .expand-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .day-plan-summary.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+        .heatmap-cell {
+            width: 1.125rem;
+            height: 1.125rem;
+            border-radius: 3px;
+            transition: transform 0.1s ease-in-out;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- View 1: Dashboard -->
+        <div id="dashboard-view">
+            <header class="text-center mb-8 relative">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">Daily Learning Planner</h1>
+                <p class="text-slate-600 dark:text-slate-400 mt-2">Plan your work for a new day or review a past one.</p>
+                <button id="theme-toggle-btn" class="absolute right-0 top-0 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                    <svg id="sun-icon" class="w-6 h-6 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    <svg id="moon-icon" class="w-6 h-6 text-slate-600 dark:text-slate-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
+            </header>
+
+            <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+                <!-- Left Column: Heatmap -->
+                <div class="lg:col-span-5 xl:col-span-4">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 lg:mb-0">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200">Monthly Progress</h2>
+                            <div class="flex gap-2">
+                                <select id="month-select" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"></select>
+                                <select id="year-select" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"></select>
+                            </div>
+                        </div>
+                        <div id="heatmap-container" class="flex justify-center"></div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Main Content -->
+                <div class="lg:col-span-7 xl:col-span-8">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Plan a New Day</h2>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <input type="date" id="date-picker" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm">
+                            <button id="plan-day-btn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">Plan</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200">Existing Plans</h2>
+                            <div id="pagination-controls" class="flex items-center gap-2">
+                                <span id="week-display" class="text-sm font-medium text-slate-600 dark:text-slate-400"></span>
+                                <button id="prev-page-btn" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold p-2 rounded-full w-8 h-8 flex items-center justify-center">&lt;</button>
+                                <button id="next-page-btn" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold p-2 rounded-full w-8 h-8 flex items-center justify-center">&gt;</button>
+                            </div>
+                        </div>
+                        <div id="planned-days-list" class="space-y-4">
+                            <p class="text-slate-500 dark:text-slate-400 text-center" id="no-plans-msg">No days planned yet. Add one above to get started!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Tracker Grid -->
+        <div id="tracker-view">
+            <header class="text-center mb-8 relative">
+                 <button id="back-to-dashboard" class="absolute left-0 top-0 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold py-2 px-4 rounded-lg">&larr; Back</button>
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">Daily Plan</h1>
+                <p id="current-date-display" class="text-slate-600 dark:text-slate-400 mt-2"></p>
+                 <button id="show-add-category-modal-btn" class="absolute right-0 top-0 bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-800 dark:text-blue-300 font-bold py-2 px-4 rounded-lg text-sm">+ Add Category</button>
+            </header>
+            
+            <main id="tracker-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            </main>
+        </div>
+
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="category-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 w-full max-w-sm">
+            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Add New Category</h2>
+            <input type="text" id="modal-new-category-input" placeholder="Category name..." class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm">
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="modal-cancel-btn" class="bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-200 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                <button id="modal-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Category Modal -->
+    <div id="edit-category-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 w-full max-w-sm">
+            <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Edit Category Name</h2>
+            <input type="hidden" id="modal-old-category-name">
+            <input type="text" id="modal-edit-category-input" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm">
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="modal-edit-cancel-btn" class="bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-200 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                <button id="modal-edit-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const dashboardView = document.getElementById('dashboard-view');
+            const trackerView = document.getElementById('tracker-view');
+            const datePicker = document.getElementById('date-picker');
+            const planDayBtn = document.getElementById('plan-day-btn');
+            const plannedDaysList = document.getElementById('planned-days-list');
+            const backBtn = document.getElementById('back-to-dashboard');
+            const trackerGrid = document.getElementById('tracker-grid');
+            const currentDateDisplay = document.getElementById('current-date-display');
+            const noPlansMsg = document.getElementById('no-plans-msg');
+            const paginationControls = document.getElementById('pagination-controls');
+            const prevPageBtn = document.getElementById('prev-page-btn');
+            const nextPageBtn = document.getElementById('next-page-btn');
+            const weekDisplay = document.getElementById('week-display');
+            const monthSelect = document.getElementById('month-select');
+            const yearSelect = document.getElementById('year-select');
+            const heatmapContainer = document.getElementById('heatmap-container');
+            const categoryModal = document.getElementById('category-modal');
+            const showAddCategoryModalBtn = document.getElementById('show-add-category-modal-btn');
+            const modalNewCategoryInput = document.getElementById('modal-new-category-input');
+            const modalCancelBtn = document.getElementById('modal-cancel-btn');
+            const modalSaveBtn = document.getElementById('modal-save-btn');
+            const editCategoryModal = document.getElementById('edit-category-modal');
+            const modalEditCategoryInput = document.getElementById('modal-edit-category-input');
+            const modalOldCategoryName = document.getElementById('modal-old-category-name');
+            const modalEditCancelBtn = document.getElementById('modal-edit-cancel-btn');
+            const modalEditSaveBtn = document.getElementById('modal-edit-save-btn');
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+
+            // --- GLOBAL STATE ---
+            let selectedDateStr;
+            let currentDayData;
+            let currentWeekIndex = 0;
+            let weekGroups = [];
+            let masterCategories = [];
+
+            // --- HELPER FUNCTIONS ---
+            
+            function getWeekStartDate(dateStr) {
+                const parts = dateStr.split('-').map(Number);
+                const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+                const dayOfWeek = date.getUTCDay();
+                date.setUTCDate(date.getUTCDate() - dayOfWeek);
+                return date;
+            }
+
+            // --- CORE FUNCTIONS ---
+
+            function switchView(view, newPlanDateStr = null) {
+                if (view === 'tracker') {
+                    dashboardView.style.display = 'none';
+                    trackerView.style.display = 'block';
+                } else {
+                    trackerView.style.display = 'none';
+                    dashboardView.style.display = 'block';
+                    updateAndRenderDashboard(newPlanDateStr);
+                    renderHeatmap();
+                }
+            }
+            
+            function setupTrackerForDate(dateStr) {
+                selectedDateStr = dateStr;
+                const displayDate = new Date(dateStr + 'T00:00:00'); 
+                currentDateDisplay.textContent = displayDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                loadTasksForSelectedDate();
+                switchView('tracker');
+            }
+            
+            function getStorageKey(dateStr) {
+                if (!dateStr) return null;
+                return `task-tracker-${dateStr}`;
+            }
+
+            function renderTracker() {
+                trackerGrid.innerHTML = '';
+                currentDayData.categories.forEach(category => {
+                    const col = document.createElement('div');
+                    col.className = 'bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col';
+                    const tasks = currentDayData.tasks[category] || [];
+                    let taskItems = tasks.map((task, index) => `
+                        <li class="flex items-start group">
+                            <input type="checkbox" id="${category}-${index}" data-category="${category}" data-index="${index}" class="task-checkbox h-5 w-5 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0 mt-1" ${task.done ? 'checked' : ''}>
+                            <label for="${category}-${index}" class="ml-3 block text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer break-words flex-1 min-w-0">${task.text}</label>
+                            <button data-category="${category}" data-index="${index}" class="delete-task-btn text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </li>
+                    `).join('');
+                    col.innerHTML = `
+                        <div class="flex justify-between items-center border-b dark:border-slate-600 pb-2 mb-4 group">
+                            <h2 class="text-xl font-bold text-slate-900 dark:text-slate-200">${category}</h2>
+                            <div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button data-category="${category}" class="edit-category-btn p-1 text-slate-400 hover:text-blue-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" /></svg>
+                                </button>
+                                <button data-category="${category}" class="delete-category-btn p-1 text-slate-400 hover:text-red-500">
+                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <ul class="space-y-3 flex-grow">${taskItems}</ul>
+                        <div class="mt-4 pt-4 border-t dark:border-slate-600">
+                            <div class="flex gap-2">
+                                <input type="text" data-category="${category}" class="add-task-input bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2" placeholder="New Task...">
+                                <button data-category="${category}" class="add-task-btn bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-sm">+</button>
+                            </div>
+                        </div>
+                    `;
+                    trackerGrid.appendChild(col);
+                });
+            }
+
+            function groupKeysByWeek() {
+                const keys = Object.keys(localStorage).filter(k => k.startsWith('task-tracker-')).sort();
+                const groups = new Map();
+                keys.forEach(key => {
+                    const dateStr = key.replace('task-tracker-', '');
+                    const weekStartObj = getWeekStartDate(dateStr);
+                    const weekStartStr = weekStartObj.toISOString().split('T')[0];
+                    if (!groups.has(weekStartStr)) {
+                        groups.set(weekStartStr, []);
+                    }
+                    groups.get(weekStartStr).push(key);
+                });
+                weekGroups = Array.from(groups.keys()).sort();
+            }
+            
+            function updateAndRenderDashboard(focusDateStr = null) {
+                groupKeysByWeek();
+                
+                const dateToFocus = focusDateStr || new Date().toISOString().split('T')[0];
+                const focusWeekStartDateStr = getWeekStartDate(dateToFocus).toISOString().split('T')[0];
+                
+                let indexToShow = weekGroups.indexOf(focusWeekStartDateStr);
+
+                if (indexToShow === -1) {
+                    weekGroups.push(focusWeekStartDateStr);
+                    weekGroups.sort();
+                    indexToShow = weekGroups.indexOf(focusWeekStartDateStr);
+                }
+                
+                currentWeekIndex = indexToShow;
+                
+                renderDashboard();
+            }
+
+            function renderDashboard() {
+                plannedDaysList.innerHTML = '';
+                
+                if (weekGroups.length === 0) {
+                    noPlansMsg.textContent = 'No days planned yet. Add one above to get started!';
+                    noPlansMsg.style.display = 'block';
+                    paginationControls.style.display = 'none';
+                    return;
+                }
+                
+                paginationControls.style.display = 'flex';
+                noPlansMsg.style.display = 'none';
+
+                const currentWeekKey = weekGroups[currentWeekIndex];
+                if (!currentWeekKey) {
+                    noPlansMsg.textContent = 'Error displaying week.';
+                    noPlansMsg.style.display = 'block';
+                    return;
+                }
+
+                const weekStart = new Date(currentWeekKey + 'T00:00:00Z');
+                const weekEnd = new Date(weekStart);
+                weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+                
+                const displayOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' };
+                weekDisplay.textContent = `${weekStart.toLocaleDateString('en-US', displayOptions)} - ${weekEnd.toLocaleDateString('en-US', displayOptions)}`;
+
+                const keysForWeek = Object.keys(localStorage)
+                    .filter(k => k.startsWith('task-tracker-'))
+                    .filter(key => {
+                        const dateStr = key.replace('task-tracker-', '');
+                        const d = new Date(dateStr + 'T00:00:00Z');
+                        return d >= weekStart && d <= weekEnd;
+                    }).sort();
+
+                if (keysForWeek.length === 0) {
+                    noPlansMsg.textContent = 'No plans for this week.';
+                    noPlansMsg.style.display = 'block';
+                } else {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    keysForWeek.forEach(key => {
+                        const dateStr = key.replace('task-tracker-', '');
+                        const date = new Date(dateStr + 'T00:00:00Z');
+                        const dayData = JSON.parse(localStorage.getItem(key));
+                        const dayContainer = document.createElement('div');
+                        
+                        const isTodayOrFuture = dateStr >= todayStr;
+                        dayContainer.className = `day-plan-summary bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 ${isTodayOrFuture ? 'expanded' : ''}`;
+                        
+                        let totalTasks = 0;
+                        let completedTasks = 0;
+                        (dayData.categories || []).forEach(category => {
+                            const tasks = dayData.tasks[category] || [];
+                            totalTasks += tasks.length;
+                            tasks.forEach(task => {
+                                if (task.done) completedTasks++;
+                            });
+                        });
+                        const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                        
+                        const radius = 18;
+                        const circumference = 2 * Math.PI * radius;
+                        const offset = circumference - (percentage / 100) * circumference;
+                        
+                        let progressColorClass;
+                        if (percentage === 100) progressColorClass = 'text-emerald-500';
+                        else if (percentage > 75) progressColorClass = 'text-green-500';
+                        else if (percentage > 25) progressColorClass = 'text-yellow-500';
+                        else progressColorClass = 'text-red-500';
+
+                        const isCompleted = percentage === 100;
+                        const progressCenterContent = isCompleted ? 
+                            `<svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>` :
+                            `<span class="text-xs font-bold text-slate-700 dark:text-slate-300">${percentage}%</span>`;
+
+                        const progressBarHtml = `
+                            <div class="w-10 h-10 relative flex-shrink-0">
+                                <svg class="w-full h-full" viewBox="0 0 40 40">
+                                    <circle class="text-slate-100 dark:text-slate-700" stroke-width="4" stroke="currentColor" fill="transparent" r="${radius}" cx="20" cy="20"/>
+                                    <circle class="progress-ring__circle ${progressColorClass}" stroke-width="4" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="20" cy="20"/>
+                                </svg>
+                                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center">${progressCenterContent}</div>
+                            </div>`;
+
+                        let columnsHtml = (dayData.categories || []).map(category => {
+                            const tasks = dayData.tasks[category] || [];
+                            if (tasks.length === 0) return '';
+                            const taskListHtml = tasks.map((task, index) => `
+                                <li class="flex items-start">
+                                    <input type="checkbox" id="dash-${dateStr}-${category}-${index}" class="dashboard-task-checkbox h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0 mt-1" data-date="${dateStr}" data-category="${category}" data-index="${index}" ${task.done ? 'checked' : ''}>
+                                    <label for="dash-${dateStr}-${category}-${index}" class="ml-2 text-slate-600 dark:text-slate-400 cursor-pointer break-words flex-1 min-w-0">${task.text}</label>
+                                </li>`).join('');
+                            return `<div><h4 class="font-semibold text-slate-700 dark:text-slate-300 border-b dark:border-slate-600 pb-1 mb-2">${category}</h4><ul class="space-y-1">${taskListHtml}</ul></div>`;
+                        }).join('');
+
+                        dayContainer.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <h3 class="font-bold text-lg text-slate-800 dark:text-slate-200 cursor-pointer hover:text-blue-600 flex-grow pt-2" data-date="${dateStr}">${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}</h3>
+                                <div class="flex items-center">
+                                    ${progressBarHtml}
+                                    <button class="delete-day-btn p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-slate-400 hover:text-red-500 ml-1" data-date="${dateStr}">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                    <button class="expand-btn p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+                                        <svg class="expand-icon w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="plan-details-content">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm pt-4 mt-2 border-t border-slate-200 dark:border-slate-700">${columnsHtml}</div>
+                            </div>`;
+                        plannedDaysList.appendChild(dayContainer);
+                    });
+                }
+
+                prevPageBtn.disabled = currentWeekIndex <= 0;
+                nextPageBtn.disabled = currentWeekIndex >= weekGroups.length - 1;
+            }
+            
+            function saveTasks() {
+                localStorage.setItem(getStorageKey(selectedDateStr), JSON.stringify(currentDayData));
+            }
+
+            function loadTasksForSelectedDate() {
+                const savedTasks = localStorage.getItem(getStorageKey(selectedDateStr));
+                currentDayData = JSON.parse(savedTasks);
+                renderTracker();
+            }
+            
+            function setupHeatmapControls() {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+
+                for (let i = currentYear - 5; i <= 3000; i++) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = i;
+                    yearSelect.appendChild(option);
+                }
+                yearSelect.value = currentYear;
+
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                monthNames.forEach((name, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = name;
+                    monthSelect.appendChild(option);
+                });
+                monthSelect.value = currentMonth;
+
+                monthSelect.addEventListener('change', renderHeatmap);
+                yearSelect.addEventListener('change', renderHeatmap);
+            }
+
+            function renderHeatmap() {
+                heatmapContainer.innerHTML = '';
+                const year = parseInt(yearSelect.value);
+                const month = parseInt(monthSelect.value);
+                
+                const gridWrapper = document.createElement('div');
+                gridWrapper.className = 'grid grid-cols-7 gap-x-2 gap-y-1 w-full max-w-xs';
+
+                ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+                    const dayEl = document.createElement('div');
+                    dayEl.className = 'font-semibold text-xs text-center text-slate-600 dark:text-slate-400 pb-2';
+                    dayEl.textContent = day;
+                    gridWrapper.appendChild(dayEl);
+                });
+
+                const firstDay = new Date(Date.UTC(year, month, 1));
+                const startDayOfWeek = firstDay.getUTCDay();
+
+                for (let i = 0; i < startDayOfWeek; i++) {
+                    gridWrapper.appendChild(document.createElement('div'));
+                }
+
+                const numDays = new Date(year, month + 1, 0).getDate();
+                for (let day = 1; day <= numDays; day++) {
+                    const date = new Date(Date.UTC(year, month, day));
+                    const dateStr = date.toISOString().split('T')[0];
+                    const key = getStorageKey(dateStr);
+                    const data = localStorage.getItem(key);
+                    
+                    const cellWrapper = document.createElement('div');
+                    cellWrapper.className = 'heatmap-week cursor-pointer';
+                    cellWrapper.dataset.weekStart = getWeekStartDate(dateStr).toISOString().split('T')[0];
+
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    
+                    if (data) {
+                        const dayData = JSON.parse(data);
+                        let totalTasks = 0;
+                        let completedTasks = 0;
+                        (dayData.categories || []).forEach(category => {
+                            const tasks = dayData.tasks[category] || [];
+                            totalTasks += tasks.length;
+                            tasks.forEach(task => { if (task.done) completedTasks++; });
+                        });
+                        
+                        if (totalTasks === 0) {
+                            cell.classList.add('bg-gray-200', 'dark:bg-slate-700');
+                        } else {
+                            const percentage = (completedTasks / totalTasks) * 100;
+                            if (percentage === 0) cell.classList.add('bg-gray-300', 'dark:bg-slate-600');
+                            else if (percentage <= 25) cell.classList.add('bg-green-200', 'dark:bg-green-900');
+                            else if (percentage <= 75) cell.classList.add('bg-green-400', 'dark:bg-green-700');
+                            else cell.classList.add('bg-green-600', 'dark:bg-green-500');
+                        }
+                    } else {
+                        cell.classList.add('bg-white', 'dark:bg-transparent', 'border', 'border-slate-200', 'dark:border-slate-700');
+                    }
+                    cellWrapper.appendChild(cell);
+                    gridWrapper.appendChild(cellWrapper);
+                }
+                heatmapContainer.appendChild(gridWrapper);
+            }
+            
+            function loadMasterCategories() {
+                const saved = localStorage.getItem('planner-master-categories');
+                if (saved) {
+                    masterCategories = JSON.parse(saved);
+                } else {
+                    masterCategories = ['DSA', 'SpringBoot', 'DevOps', 'Cloud'];
+                    saveMasterCategories();
+                }
+            }
+
+            function saveMasterCategories() {
+                localStorage.setItem('planner-master-categories', JSON.stringify(masterCategories));
+            }
+            
+            // --- EVENT LISTENERS ---
+
+            planDayBtn.addEventListener('click', () => {
+                if (datePicker.value) {
+                    const dateStr = datePicker.value;
+                    const key = getStorageKey(dateStr);
+                    if (!localStorage.getItem(key)) {
+                        loadMasterCategories();
+                        const newDayData = {
+                            categories: [...masterCategories],
+                            tasks: {}
+                        };
+                        masterCategories.forEach(cat => {
+                            newDayData.tasks[cat] = [];
+                        });
+                        localStorage.setItem(key, JSON.stringify(newDayData));
+                    }
+                    setupTrackerForDate(dateStr);
+                }
+            });
+
+            plannedDaysList.addEventListener('click', (e) => {
+                const header = e.target.closest('h3[data-date]');
+                const expandBtn = e.target.closest('.expand-btn');
+                const deleteBtn = e.target.closest('.delete-day-btn');
+
+                if (deleteBtn) {
+                    const dateToDelete = deleteBtn.dataset.date;
+                    localStorage.removeItem(getStorageKey(dateToDelete));
+                    updateAndRenderDashboard();
+                    renderHeatmap();
+                } else if (expandBtn) {
+                    const daySummary = expandBtn.closest('.day-plan-summary');
+                    daySummary.classList.toggle('expanded');
+                } else if (header) {
+                    setupTrackerForDate(header.dataset.date);
+                }
+            });
+            
+            plannedDaysList.addEventListener('change', (e) => {
+                if (e.target.matches('.dashboard-task-checkbox')) {
+                    const { date, category, index } = e.target.dataset;
+                    const key = getStorageKey(date);
+                    const dayData = JSON.parse(localStorage.getItem(key));
+                    dayData.tasks[category][index].done = e.target.checked;
+                    localStorage.setItem(key, JSON.stringify(dayData));
+                    renderDashboard();
+                    renderHeatmap();
+                }
+            });
+
+            backBtn.addEventListener('click', () => {
+                switchView('dashboard', selectedDateStr);
+            });
+
+            prevPageBtn.addEventListener('click', () => {
+                if (currentWeekIndex > 0) {
+                    currentWeekIndex--;
+                    renderDashboard();
+                }
+            });
+
+            nextPageBtn.addEventListener('click', () => {
+                if (currentWeekIndex < weekGroups.length - 1) {
+                    currentWeekIndex++;
+                    renderDashboard();
+                }
+            });
+
+            trackerGrid.addEventListener('click', (e) => {
+                const addBtn = e.target.closest('.add-task-btn');
+                const deleteBtn = e.target.closest('.delete-task-btn');
+                const deleteCatBtn = e.target.closest('.delete-category-btn');
+                const editCatBtn = e.target.closest('.edit-category-btn');
+
+                if (addBtn) {
+                    const category = addBtn.dataset.category;
+                    const input = trackerGrid.querySelector(`.add-task-input[data-category="${category}"]`);
+                    if (input && input.value.trim() !== '') {
+                        currentDayData.tasks[category].push({ text: input.value.trim(), done: false });
+                        saveTasks();
+                        renderTracker();
+                    }
+                } else if (deleteBtn) {
+                    const { category, index } = deleteBtn.dataset;
+                    currentDayData.tasks[category].splice(index, 1);
+                    saveTasks();
+                    renderTracker();
+                } else if (deleteCatBtn) {
+                    const catToDelete = deleteCatBtn.dataset.category;
+                    currentDayData.categories = currentDayData.categories.filter(c => c !== catToDelete);
+                    delete currentDayData.tasks[catToDelete];
+                    masterCategories = masterCategories.filter(c => c !== catToDelete);
+                    saveTasks();
+                    saveMasterCategories();
+                    renderTracker();
+                } else if (editCatBtn) {
+                    const oldCategory = editCatBtn.dataset.category;
+                    modalOldCategoryName.value = oldCategory;
+                    modalEditCategoryInput.value = oldCategory;
+                    editCategoryModal.style.display = 'flex';
+                    modalEditCategoryInput.focus();
+                }
+            });
+            
+            trackerGrid.addEventListener('change', (e) => {
+                 if (e.target.matches('.task-checkbox')) {
+                    const { category, index } = e.target.dataset;
+                    currentDayData.tasks[category][index].done = e.target.checked;
+                    saveTasks();
+                    renderTracker();
+                }
+            });
+            
+            trackerGrid.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && e.target.matches('.add-task-input')) {
+                    e.preventDefault();
+                    const category = e.target.dataset.category;
+                    const addBtn = trackerGrid.querySelector(`.add-task-btn[data-category="${category}"]`);
+                    addBtn.click();
+                }
+            });
+            
+            heatmapContainer.addEventListener('click', (e) => {
+                const weekWrapper = e.target.closest('.heatmap-week');
+                if (weekWrapper && weekWrapper.dataset.weekStart) {
+                    updateAndRenderDashboard(weekWrapper.dataset.weekStart);
+                }
+            });
+            
+            showAddCategoryModalBtn.addEventListener('click', () => {
+                categoryModal.style.display = 'flex';
+                modalNewCategoryInput.focus();
+            });
+
+            modalCancelBtn.addEventListener('click', () => {
+                categoryModal.style.display = 'none';
+            });
+
+            modalSaveBtn.addEventListener('click', () => {
+                const newCat = modalNewCategoryInput.value.trim();
+                if (newCat && !currentDayData.categories.includes(newCat)) {
+                    currentDayData.categories.push(newCat);
+                    currentDayData.tasks[newCat] = [];
+                    if (!masterCategories.includes(newCat)) {
+                        masterCategories.push(newCat);
+                        saveMasterCategories();
+                    }
+                    saveTasks();
+                    renderTracker();
+                    modalNewCategoryInput.value = '';
+                    categoryModal.style.display = 'none';
+                }
+            });
+
+            modalEditCancelBtn.addEventListener('click', () => {
+                editCategoryModal.style.display = 'none';
+            });
+
+            modalEditSaveBtn.addEventListener('click', () => {
+                const oldCategory = modalOldCategoryName.value;
+                const newCategory = modalEditCategoryInput.value.trim();
+                if (newCategory && newCategory !== oldCategory) {
+                    const catIndex = currentDayData.categories.indexOf(oldCategory);
+                    currentDayData.categories[catIndex] = newCategory;
+                    currentDayData.tasks[newCategory] = currentDayData.tasks[oldCategory];
+                    delete currentDayData.tasks[oldCategory];
+                    
+                    const masterIndex = masterCategories.indexOf(oldCategory);
+                    if(masterIndex > -1) masterCategories[masterIndex] = newCategory;
+
+                    saveTasks();
+                    saveMasterCategories();
+                    renderTracker();
+                    editCategoryModal.style.display = 'none';
+                }
+            });
+
+            // --- Theme Toggle ---
+            function syncTheme() {
+                if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    sunIcon.classList.remove('hidden');
+                    moonIcon.classList.add('hidden');
+                }
+            }
+
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+                syncTheme();
+            });
+
+            // --- INITIALIZATION ---
+            syncTheme();
+            loadMasterCategories();
+            setupHeatmapControls();
+            updateAndRenderDashboard();
+            renderHeatmap();
+            datePicker.valueAsDate = new Date();
+        });
+    </script>
+</body>
+</html>
