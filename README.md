@@ -6,6 +6,11 @@ A single-page web application for organizing, tracking, and visualizing daily ta
 
 https://spidersnipero.github.io/Daily-planner/
 
+
+
+<img width="2619" height="1591" alt="image" src="https://github.com/user-attachments/assets/019080f1-5631-4257-ab68-63683fd30a1c" />
+
+
 ## Features
 
 * **Progress Visualization:**
