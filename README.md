@@ -23,7 +23,7 @@ This project is a single HTML file with no build dependencies.
 
 1.  **Clone the repository:**
     ```
-    git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
+    git clone [git@github.com:spidersnipero/Daily-planner.git]
     ```
 2.  **Navigate to the project directory:**
     ```
