@@ -2,7 +2,9 @@
 
 A single-page web application for organizing, tracking, and visualizing daily tasks with a monthly heatmap, customizable templates, and interactive progress tracking. All data is stored locally in your browser.
 
-### [Live Demo](https://spidersnipero.github.io/Daily-planner/) https://spidersnipero.github.io/Daily-planner/
+### [Live Demo](https://spidersnipero.github.io/Daily-planner/) 
+
+https://spidersnipero.github.io/Daily-planner/
 
 ## Features
 
