@@ -1,0 +1,42 @@
+Daily Learning Planner
+Overview
+The Daily Learning Planner is a single-page web application designed to organize, track, and visualize daily tasks. It features a responsive interface with a monthly activity heatmap, customizable templates, and interactive progress tracking. All data is stored privately in the browser's local storage.
+
+Key Features
+Progress Visualization:
+
+Monthly Heatmap: Get an at-a-glance view of your monthly activity, with days color-coded by task completion percentage.
+
+Circular Progress Bars: Each day's summary includes a circular progress bar showing the overall completion rate.
+
+Customizable Planning:
+
+Dynamic Templates: Add or remove categories (e.g., "DSA," "Gym") on any day. Changes update the default template for plans without altering past entries.
+
+Smart Defaults: New daily plans are automatically created using the template from your most recently planned day.
+
+Interactive UI:
+
+Collapsible Summaries: Daily plans are displayed as collapsible dropdowns to keep the dashboard clean. Current and future days are expanded by default.
+
+Weekly Pagination: Navigate through your plans week by week (Sunday to Saturday).
+
+Dark & Light Modes: Toggle between themes with a convenient header button. Your preference is saved automatically.
+
+Getting Started
+Plan a Day: Select a date and click "Plan" to open the daily editor.
+
+Manage Tasks: Add, edit, or delete tasks and categories directly within the daily editor.
+
+Track Progress: Check off tasks on the main dashboard or in the daily editor to update your progress bars and heatmap in real-time.
+
+Review History: Use the heatmap's month/year selectors and the weekly pagination to review past performance.
+
+Tech Stack
+HTML
+
+Tailwind CSS
+
+JavaScript (ES6+)
+
+Browser Local Storage
