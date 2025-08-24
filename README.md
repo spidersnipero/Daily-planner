@@ -29,7 +29,7 @@ This project is a single HTML file with no build dependencies.
     ```
 2.  **Navigate to the project directory:**
     ```
-    cd your-repo-name
+    cd Daily-planner
     ```
 3.  **Open the `index.html` file** in your web browser.
 
