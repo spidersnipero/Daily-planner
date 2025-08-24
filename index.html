@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Learning Tracker</title>
+    <title>Daily Planner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗓️</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Configure Tailwind CSS to use the 'class' strategy for dark mode
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -20,7 +20,7 @@
             color: #6b7280;
         }
         .dark .task-checkbox:checked + label, .dark .dashboard-task-checkbox:checked + label {
-            color: #94a3b8; /* slate-400 */
+            color: #94a3b8;
         }
         .task-checkbox:checked, .dashboard-task-checkbox:checked {
             background-color: #3b82f6;
@@ -64,6 +64,40 @@
         .heatmap-cell:hover {
             transform: scale(1.2);
         }
+        /* --- Flatpickr Dark Mode Styles --- */
+        .dark .flatpickr-calendar {
+            background: #1e293b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
+            color: #e2e8f0; /* slate-200 */
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .dark .flatpickr-months .flatpickr-month {
+            color: #e2e8f0;
+        }
+        .dark .flatpickr-months .flatpickr-prev-month svg,
+        .dark .flatpickr-months .flatpickr-next-month svg {
+            fill: #e2e8f0;
+        }
+        .dark .flatpickr-weekday {
+            color: #94a3b8; /* slate-400 */
+        }
+        .dark .flatpickr-day {
+            color: #e2e8f0;
+        }
+        .dark .flatpickr-day:hover, .dark .flatpickr-day:focus {
+            background: #334155;
+        }
+        .dark .flatpickr-day.today {
+            border-color: #3b82f6; /* blue-500 */
+        }
+        .dark .flatpickr-day.selected, .dark .flatpickr-day.startRange, .dark .flatpickr-day.endRange {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #fff;
+        }
+        .dark .flatpickr-day.disabled, .dark .flatpickr-day.disabled:hover {
+            color: #475569; /* slate-600 */
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
@@ -74,7 +108,7 @@
         <!-- View 1: Dashboard -->
         <div id="dashboard-view">
             <header class="text-center mb-8 relative">
-                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">Daily Learning Planner</h1>
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">🗓️ Daily Planner</h1>
                 <p class="text-slate-600 dark:text-slate-400 mt-2">Plan your work for a new day or review a past one.</p>
                 <button id="theme-toggle-btn" class="absolute right-0 top-0 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
                     <svg id="sun-icon" class="w-6 h-6 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -102,7 +136,7 @@
                     <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                         <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">Plan a New Day</h2>
                         <div class="flex flex-col sm:flex-row gap-3">
-                            <input type="date" id="date-picker" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm">
+                            <input type="text" id="date-picker" placeholder="Select a date..." class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 shadow-sm">
                             <button id="plan-day-btn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">Plan</button>
                         </div>
                     </div>
@@ -550,8 +584,8 @@
             // --- EVENT LISTENERS ---
 
             planDayBtn.addEventListener('click', () => {
-                if (datePicker.value) {
-                    const dateStr = datePicker.value;
+                const dateStr = flatpickr.formatDate(datePicker._flatpickr.selectedDates[0], "Y-m-d");
+                if (dateStr) {
                     const key = getStorageKey(dateStr);
                     if (!localStorage.getItem(key)) {
                         loadMasterCategories();
@@ -755,7 +789,10 @@
             setupHeatmapControls();
             updateAndRenderDashboard();
             renderHeatmap();
-            datePicker.valueAsDate = new Date();
+            flatpickr(datePicker, {
+                dateFormat: "d-m-Y",
+                defaultDate: "today"
+            });
         });
     </script>
 </body>
