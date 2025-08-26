@@ -29,7 +29,7 @@
         label, .task-checkbox, .dashboard-task-checkbox, button {
             transition: all 0.2s ease-in-out;
         }
-        #tracker-view, #category-modal, #edit-category-modal {
+        #tracker-view, #category-modal, #edit-category-modal, #notes-modal {
             display: none;
         }
         button:disabled {
@@ -216,6 +216,20 @@
         </div>
     </div>
 
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 w-full max-w-lg h-3/4 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200">Notes for <span id="notes-modal-date"></span></h2>
+                <button id="notes-modal-close-btn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                     <svg class="w-6 h-6 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <textarea id="notes-textarea" class="w-full h-full bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500" placeholder="Type your notes here..."></textarea>
+            <input type="hidden" id="notes-modal-date-key">
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM ELEMENTS ---
@@ -248,6 +262,11 @@
             const themeToggleBtn = document.getElementById('theme-toggle-btn');
             const sunIcon = document.getElementById('sun-icon');
             const moonIcon = document.getElementById('moon-icon');
+            const notesModal = document.getElementById('notes-modal');
+            const notesModalDate = document.getElementById('notes-modal-date');
+            const notesModalCloseBtn = document.getElementById('notes-modal-close-btn');
+            const notesTextarea = document.getElementById('notes-textarea');
+            const notesModalDateKey = document.getElementById('notes-modal-date-key');
 
             // --- GLOBAL STATE ---
             let selectedDateStr;
@@ -466,7 +485,10 @@
                                 <h3 class="font-bold text-lg text-slate-800 dark:text-slate-200 cursor-pointer hover:text-blue-600 flex-grow pt-2" data-date="${dateStr}">${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}</h3>
                                 <div class="flex items-center">
                                     ${progressBarHtml}
-                                    <button class="delete-day-btn p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-slate-400 hover:text-red-500 ml-1" data-date="${dateStr}">
+                                    <button class="notes-btn p-2 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-900/50 text-slate-400 hover:text-yellow-500 ml-1" data-date="${dateStr}">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                    <button class="delete-day-btn p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 text-slate-400 hover:text-red-500" data-date="${dateStr}">
                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                     <button class="expand-btn p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -567,10 +589,10 @@
                             tasks.forEach(task => { if (task.done) completedTasks++; });
                         });
                         
-                        if (totalTasks === 0) {
-                            cell.classList.add('bg-gray-200', 'dark:bg-slate-700');
+                        if (totalTasks === 0 && !dayData.notes) {
+                             cell.classList.add('bg-gray-200', 'dark:bg-slate-700');
                         } else {
-                            const percentage = (completedTasks / totalTasks) * 100;
+                            const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
                             if (percentage === 0) cell.classList.add('bg-gray-300', 'dark:bg-slate-600');
                             else if (percentage <= 25) cell.classList.add('bg-green-200', 'dark:bg-green-900');
                             else if (percentage <= 75) cell.classList.add('bg-green-400', 'dark:bg-green-700');
@@ -609,7 +631,8 @@
                         loadMasterCategories();
                         const newDayData = {
                             categories: [...masterCategories],
-                            tasks: {}
+                            tasks: {},
+                            notes: ""
                         };
                         masterCategories.forEach(cat => {
                             newDayData.tasks[cat] = [];
@@ -624,6 +647,7 @@
                 const header = e.target.closest('h3[data-date]');
                 const expandBtn = e.target.closest('.expand-btn');
                 const deleteBtn = e.target.closest('.delete-day-btn');
+                const notesBtn = e.target.closest('.notes-btn');
 
                 if (deleteBtn) {
                     const dateToDelete = deleteBtn.dataset.date;
@@ -635,6 +659,14 @@
                     daySummary.classList.toggle('expanded');
                 } else if (header) {
                     setupTrackerForDate(header.dataset.date);
+                } else if (notesBtn) {
+                    const dateStr = notesBtn.dataset.date;
+                    const dayData = JSON.parse(localStorage.getItem(getStorageKey(dateStr)));
+                    notesModalDate.textContent = new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+                    notesTextarea.value = dayData.notes || "";
+                    notesModalDateKey.value = dateStr;
+                    notesModal.style.display = 'flex';
+                    notesTextarea.focus();
                 }
             });
             
@@ -685,8 +717,19 @@
                 } else if (deleteBtn) {
                     const { category, index } = deleteBtn.dataset;
                     currentDayData.tasks[category].splice(index, 1);
-                    saveTasks();
-                    renderTracker();
+                    
+                    let totalTasksRemaining = 0;
+                    currentDayData.categories.forEach(cat => {
+                        if (currentDayData.tasks[cat]) totalTasksRemaining += currentDayData.tasks[cat].length;
+                    });
+
+                    if (totalTasksRemaining === 0 && (!currentDayData.notes || currentDayData.notes.trim() === '')) {
+                        localStorage.removeItem(getStorageKey(selectedDateStr));
+                        switchView('dashboard');
+                    } else {
+                        saveTasks();
+                        renderTracker();
+                    }
                 } else if (deleteCatBtn) {
                     const catToDelete = deleteCatBtn.dataset.category;
                     currentDayData.categories = currentDayData.categories.filter(c => c !== catToDelete);
@@ -775,6 +818,18 @@
                     renderTracker();
                     editCategoryModal.style.display = 'none';
                 }
+            });
+
+            notesModalCloseBtn.addEventListener('click', () => {
+                notesModal.style.display = 'none';
+            });
+
+            notesTextarea.addEventListener('input', () => {
+                const dateStr = notesModalDateKey.value;
+                const key = getStorageKey(dateStr);
+                const dayData = JSON.parse(localStorage.getItem(key));
+                dayData.notes = notesTextarea.value;
+                localStorage.setItem(key, JSON.stringify(dayData));
             });
 
             // --- Theme Toggle ---
